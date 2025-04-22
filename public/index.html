@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Daftar Kategori & Produk</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background-color: #2e2e2e;
+      color: #f1f1f1;
+    }
+    .kategori {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background-color: #444;
+    }
+    .kategori h2 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .kategori h2 span {
+      font-size: 1rem;
+    }
+    .produk {
+      margin-left: 1rem;
+    }
+    .produk button, .hapus-kategori, .edit-kategori {
+      margin-left: 1rem;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    .edit-kategori {
+      background-color: #007bff;
+    }
+    .top-menu {
+      margin-bottom: 1.5rem;
+    }
+    .top-menu a, .top-menu button {
+      margin-right: 1rem;
+      text-decoration: none;
+      padding: 6px 12px;
+      border: 1px solid #007bff;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+    }
+    .loading {
+      font-style: italic;
+      color: #007bff;
+    }
+    .error {
+      color: red;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .input-field {
+      padding: 0.5rem;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Daftar Kategori & Produk</h1>
+
+  <div class="top-menu">
+    <a href="/public/kategori.html">➕ Tambah Kategori</a>
+    <a href="/public/produk.html">➕ Tambah Produk</a>
+    <button onclick="loadData()">🔄 Refresh</button>
+  </div>
+
+  <div id="kategori-list" class="loading">Loading...</div>
+
+  <!-- Modal Edit Kategori -->
+  <div id="edit-kategori-modal" style="display: none;">
+    <h3>Edit Kategori</h3>
+    <form id="edit-kategori-form">
+      <div class="form-group">
+        <label for="edit-nama">Nama Kategori:</label>
+        <input type="text" id="edit-nama" class="input-field" required />
+      </div>
+      <button type="submit">Simpan Perubahan</button>
+      <button type="button" onclick="closeEditKategoriModal()">Batal</button>
+    </form>
+  </div>
+
+  <script>
+    let kategoriIdToEdit = null;
+
+    function loadData() {
+      const container = document.getElementById("kategori-list");
+      container.innerHTML = "Loading...";
+
+      fetch("http://localhost:8080/kategori")
+        .then(response => response.json())
+        .then(kategoris => {
+          container.innerHTML = "";
+
+          if (kategoris.length === 0) {
+            container.innerHTML = "<p><em>Tidak ada kategori tersedia</em></p>";
+            return;
+          }
+
+          kategoris.forEach(kategori => {
+            const div = document.createElement("div");
+            div.className = "kategori";
+
+            let html = `
+              <h2>
+                ${kategori.nama}
+                <button class="edit-kategori" onclick="editKategori(${kategori.ID || kategori.id}, '${kategori.nama}')">✏️ Edit</button>
+                <button class="hapus-kategori" onclick="hapusKategori(${kategori.ID || kategori.id})">🗑️ Hapus Kategori</button>
+              </h2>
+            `;
+
+            const produkList = kategori.Produk || [];
+            if (produkList.length > 0) {
+              html += `<ul>`;
+              produkList.forEach(p => {
+                html += `<li class="produk">${p.nama} - Rp${p.harga.toLocaleString()}
+                  <button onclick="hapusProduk(${p.id})">Hapus</button>
+                </li>`;
+              });
+              html += `</ul>`;
+            } else {
+              html += `<p><em>Tidak ada produk dalam kategori ini</em></p>`;
+            }
+
+            div.innerHTML = html;
+            container.appendChild(div);
+          });
+        })
+        .catch(error => {
+          container.innerHTML = `<p class="error">Gagal load data: ${error}</p>`;
+        });
+    }
+
+    function hapusProduk(id) {
+      if (!confirm("Yakin ingin hapus produk ini?")) return;
+
+      fetch(`http://localhost:8080/produk/${id}`, {
+        method: "DELETE"
+      })
+      .then(() => {
+        alert("Produk berhasil dihapus!");
+        loadData();
+      })
+      .catch(err => {
+        alert("Gagal hapus produk.");
+        console.error(err);
+      });
+    }
+
+    function hapusKategori(id) {
+      if (!confirm("Yakin ingin hapus kategori ini beserta semua produknya?")) return;
+
+      fetch(`http://localhost:8080/kategori/${id}`, {
+        method: "DELETE"
+      })
+      .then(() => {
+        alert("Kategori dan semua produk terkait berhasil dihapus!");
+        loadData();
+      })
+      .catch(err => {
+        alert("Gagal hapus kategori.");
+        console.error(err);
+      });
+    }
+
+    function editKategori(id, nama) {
+      kategoriIdToEdit = id;
+      document.getElementById("edit-nama").value = nama;
+      document.getElementById("edit-kategori-modal").style.display = "block";
+    }
+
+    function closeEditKategoriModal() {
+      document.getElementById("edit-kategori-modal").style.display = "none";
+    }
+
+    document.getElementById("edit-kategori-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      const nama = document.getElementById("edit-nama").value;
+
+      fetch(`http://localhost:8080/kategori/${kategoriIdToEdit}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nama })
+      })
+      .then(res => res.json())
+      .then(() => {
+        alert("Kategori berhasil diupdate!");
+        closeEditKategoriModal();
+        loadData();
+      })
+      .catch(err => {
+        alert("Gagal update kategori.");
+        console.error(err);
+      });
+    });
+
+    document.addEventListener("DOMContentLoaded", loadData);
+  </script>
+</body>
+</html>

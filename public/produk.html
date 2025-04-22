@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tambah Produk</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+    }
+    form {
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    input, select, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    .message {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>➕ Tambah Produk</h1>
+
+  <form id="produk-form">
+    <label for="nama">Nama Produk:</label>
+    <input type="text" id="nama" name="nama" required />
+
+    <label for="harga">Harga:</label>
+    <input type="number" id="harga" name="harga" required min="0" />
+
+    <label for="kategori">Pilih Kategori:</label>
+    <select id="kategori" name="kategori_id" required>
+      <option value="">-- Pilih Kategori --</option>
+    </select>
+
+    <button type="submit">Simpan</button>
+  </form>
+
+  <div class="message" id="message"></div>
+
+  <p><a href="/">⬅️ Kembali ke Daftar</a></p>
+
+  <script>
+    const kategoriSelect = document.getElementById("kategori");
+    const form = document.getElementById("produk-form");
+    const messageDiv = document.getElementById("message");
+
+    // Load kategori dari API untuk dropdown
+    fetch("http://localhost:8080/kategori")
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(kat => {
+          const option = document.createElement("option");
+          option.value = kat.ID || kat.id;
+          option.textContent = kat.nama;
+          kategoriSelect.appendChild(option);
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        kategoriSelect.innerHTML = `<option disabled>Gagal load kategori</option>`;
+      });
+
+    // Kirim data produk ke API
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const nama = document.getElementById("nama").value.trim();
+      const harga = parseInt(document.getElementById("harga").value);
+      const kategori_id = parseInt(kategoriSelect.value);
+
+      if (!nama || harga < 0 || isNaN(kategori_id)) {
+        messageDiv.innerHTML = "<span style='color:red;'>Input tidak valid.</span>";
+        return;
+      }
+
+      fetch("http://localhost:8080/produk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nama, harga, kategori_id })
+      })
+      .then(async res => {
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText);
+        }
+        return res.json();
+      })
+      .then(data => {
+        messageDiv.innerHTML = "<span style='color: green;'>✅ Produk berhasil ditambahkan!</span>";
+        form.reset();
+        kategoriSelect.selectedIndex = 0;
+      })
+      .catch(error => {
+        console.error(error);
+        messageDiv.innerHTML = "<span style='color: red;'>❌ Gagal menambahkan produk: " + error.message + "</span>";
+      });
+    });
+  </script>
+</body>
+</html>
